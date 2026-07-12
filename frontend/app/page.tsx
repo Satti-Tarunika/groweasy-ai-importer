@@ -27,7 +27,7 @@ export default function Home() {
 
     try {
       // Upload CSV
-      const res = await fetch("http://localhost:5000/api/upload", {
+      const res = await fetch("https://groweasy-ai-importer-a8ra.onrender.com/api/upload", {
         method: "POST",
         body: formData,
       });
@@ -62,8 +62,8 @@ export default function Home() {
    const headers = Object.keys(uploadedData[0]);
 
    const aiRes = await fetch(
-      "http://localhost:5000/api/ai/map",
-      {
+  "https://groweasy-ai-importer-a8ra.onrender.com/api/ai/map",
+  {
          method:"POST",
          headers:{
             "Content-Type":"application/json"
