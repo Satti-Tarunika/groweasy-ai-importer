@@ -56,6 +56,7 @@ export default function Home() {
     setLoading(false);
   };
   const confirmImport = async () => {
+    
   if (uploadedData.length === 0) {
     alert("Please upload a CSV first.");
     return;
@@ -65,6 +66,7 @@ export default function Home() {
     setLoading(true);
 
     const headers = Object.keys(uploadedData[0]);
+    console.log("Headers:", headers);
 
     const aiRes = await fetch(
       "https://groweasy-ai-importer-a8ra.onrender.com/api/ai/map",
@@ -76,15 +78,32 @@ export default function Home() {
         body: JSON.stringify({ headers }),
       }
     );
+    
 
     const aiData = await aiRes.json();
-
+    console.log("AI Response:", aiData);
     console.log(aiData);
+    console.log("Confirm clicked");
+
+console.log("Uploaded Data:", uploadedData);
 
     if (!aiData.success) {
       alert("AI mapping failed");
       return;
     }
+    setMapping(aiData.mapping);
+
+const mapped = uploadedData.map((row) => {
+const newRow: Record<string, any> = {};
+  Object.keys(row).forEach((key) => {
+    newRow[aiData.mapping[key] || key] = row[key];
+  });
+
+  return newRow;
+});
+
+setPreview(mapped);
+setSkipped(uploadedData.length - mapped.length);
 
     // your existing mapping code...
   } catch (err) {
