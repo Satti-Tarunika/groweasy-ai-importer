@@ -7,6 +7,10 @@ export default function Home() {
   const [mapping, setMapping] = useState<any>({});
   const [preview, setPreview] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fileName, setFileName] = useState("");
+  const [skipped, setSkipped] = useState(0);
+  const [uploadedData, setUploadedData] = useState<any[]>([]);
+  const [uploadedHeaders, setUploadedHeaders] = useState<string[]>([]);
   const [search, setSearch] = useState("");
 
   const uploadCSV = async (
@@ -40,37 +44,10 @@ export default function Home() {
 
       // Get CSV headers
       const headers = Object.keys(data.preview[0]);
+      setUploadedHeaders(headers);
 
       // Send headers to Gemini AI
-      const aiRes = await fetch("http://localhost:5000/api/ai/map", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ headers }),
-      });
-
-      const aiData = await aiRes.json();
-
-      console.log("AI Mapping:", JSON.stringify(aiData, null, 2));
-
-      if (aiData.success) {
-        setMapping(aiData.mapping);
-        const mappedPreview = data.preview.map((row: any) => {
-          const newRow: any = {};
-
-          Object.keys(row).forEach((key) => {
-            const newKey = aiData.mapping[key] || key;
-            newRow[newKey] = row[key];
-          });
-
-          return newRow;
-        });
-
-        setPreview(mappedPreview);
-      } else {
-        setPreview(data.preview);
-      }
+      setUploadedData(data.preview);
     } catch (err) {
       console.error(err);
       alert("Something went wrong.");
@@ -78,6 +55,53 @@ export default function Home() {
 
     setLoading(false);
   };
+  const confirmImport = async () => {
+
+   setLoading(true);
+
+   const headers = Object.keys(uploadedData[0]);
+
+   const aiRes = await fetch(
+      "http://localhost:5000/api/ai/map",
+      {
+         method:"POST",
+         headers:{
+            "Content-Type":"application/json"
+         },
+         body:JSON.stringify({headers})
+      }
+   );
+
+   const aiData = await aiRes.json();
+
+   if(aiData.success){
+
+      setMapping(aiData.mapping);
+
+      const mapped = uploadedData.map((row:any)=>{
+
+         const newRow:any={};
+
+         Object.keys(row).forEach((key)=>{
+
+            newRow[
+               aiData.mapping[key] || key
+            ]=row[key];
+
+         });
+
+         return newRow;
+
+      });
+
+      setPreview(mapped);
+      setSkipped(uploadedData.length - mapped.length);
+
+   }
+
+   setLoading(false);
+
+}
 
   // Download CSV
   const downloadCSV = () => {
@@ -159,6 +183,70 @@ export default function Home() {
   </label>
 
 </div>
+{uploadedData.length > 0 && preview.length === 0 && (
+  <div className="bg-white rounded-xl shadow-lg p-6 mt-6">
+
+    <h2 className="text-2xl font-bold mb-4">
+      CSV Preview
+    </h2>
+
+    <div className="overflow-auto max-h-80">
+
+      <table className="min-w-full">
+
+        <thead className="sticky top-0 bg-blue-600 z-10">
+
+          <tr>
+
+            {Object.keys(uploadedData[0]).map((key) => (
+
+              <th
+                key={key}
+                className="bg-gray-200 px-4 py-2"
+              >
+                {key}
+              </th>
+
+            ))}
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          {uploadedData.map((row, i) => (
+
+            <tr key={i}>
+
+              {Object.values(row).map((value:any,j)=>(
+                <td
+                  key={j}
+                  className="border px-4 py-2"
+                >
+                  {String(value)}
+                </td>
+              ))}
+
+            </tr>
+
+          ))}
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <button
+  onClick={confirmImport}
+  className="mt-5 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold shadow"
+>
+  ✅ Confirm Import
+</button>
+
+  </div>
+)}
 
         {loading && (
           <div className="bg-yellow-100 border border-yellow-300 rounded-xl p-4 mb-6">
@@ -176,6 +264,29 @@ export default function Home() {
 
         {preview.length > 0 && (
           <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+  <div className="bg-green-100 rounded-xl p-6 shadow">
+    <h3 className="text-lg font-bold text-green-700">
+      ✅ Successfully Imported
+    </h3>
+
+    <p className="text-4xl font-bold mt-2">
+      {preview.length}
+    </p>
+  </div>
+
+  <div className="bg-red-100 rounded-xl p-6 shadow">
+    <h3 className="text-lg font-bold text-red-700">
+      ❌ Skipped Records
+    </h3>
+
+    <p className="text-4xl font-bold mt-2">
+      {skipped}
+    </p>
+  </div>
+
+</div>
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-200">
 
   <h2 className="text-xl font-bold text-blue-700 mb-4">
@@ -221,19 +332,25 @@ export default function Home() {
 
   <table className="w-full">
 
-    <thead>
+    <thead className="sticky top-0 bg-blue-600 z-10">
 
       <tr className="bg-gray-100">
 
-        <th className="p-3 text-left">
+        <th
+  className="bg-blue-600 text-white px-4 py-3 sticky top-0"
+>
           Original Column
         </th>
 
-        <th className="p-3 text-center">
+        <th
+  className="bg-blue-600 text-white px-4 py-3 sticky top-0"
+>
           →
         </th>
 
-        <th className="p-3 text-left">
+        <th
+  className="bg-blue-600 text-white px-4 py-3 sticky top-0"
+>
           CRM Column
         </th>
 
@@ -268,14 +385,25 @@ export default function Home() {
   </table>
 
 </div>
-            <button
-              onClick={downloadCSV}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow-lg font-semibold mb-6"
-            >
-              Download Mapped CSV
-            </button>
+            <div className="flex gap-4 mb-6">
+  <button
+    onClick={downloadCSV}
+    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow-lg font-semibold"
+  >
+    ⬇ Download CRM CSV
+  </button>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+  <button
+    onClick={() => window.location.reload()}
+    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl shadow-lg font-semibold"
+  >
+    🔄 Upload Another CSV
+  </button>
+</div>
+
+            <h2 className="text-2xl font-bold text-blue-700 mb-4">
+  📊 Import Summary
+</h2>
 
   <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
     <p className="text-gray-500">📄 Total Records</p>
@@ -305,7 +433,7 @@ export default function Home() {
     </h2>
   </div>
 
-</div>
+
 <div className="bg-green-50 border border-green-300 rounded-2xl p-6 mb-6 shadow">
 
   <h2 className="text-xl font-bold text-green-700">
@@ -314,19 +442,26 @@ export default function Home() {
 
   <div className="grid grid-cols-2 gap-3 mt-4">
 
-    <div>✔ Name → Name</div>
-    <div>✔ Email → Email</div>
-    <div>✔ Phone → Phone</div>
-    <div>✔ City → City</div>
+    <div className="grid grid-cols-2 gap-3 mt-4">
+  {Object.entries(mapping).map(([oldKey, newKey]) => (
+    <div key={oldKey}>
+      ✔ {oldKey} → {String(newKey)}
+    </div>
+  ))}
+</div>
 
   </div>
 
   <p className="text-green-600 mt-4">
     Google Gemini AI successfully recognized and mapped all columns.
   </p>
+  <h2 className="text-2xl font-bold text-blue-700 mb-4">
+  🤖 AI Extracted CRM Records (Final Output)
+</h2>
 
 </div>
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-between items-center mb-4">
+              
   <input
     type="text"
     placeholder="🔍 Search..."
@@ -336,16 +471,16 @@ export default function Home() {
   />
 </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-96 border rounded-xl">
               <table className="min-w-full rounded-xl overflow-hidden shadow-lg">
 
-                <thead>
+                <thead className="sticky top-0 bg-blue-600 z-10">
                   <tr>
                     {Object.keys(preview[0]).map((key) => (
                       <th
-                        key={key}
-                        className="bg-blue-600 text-white px-4 py-3"
-                      >
+  key={key}
+  className="bg-blue-600 text-white px-4 py-3 sticky top-0"
+>
                         {key}
                       </th>
                     ))}
@@ -368,11 +503,15 @@ export default function Home() {
                 </tbody>
 
               </table>
+              <div className="mt-10 text-center text-gray-500 text-sm">
+  Powered by Google Gemini AI • GrowEasy Assignment • Built with Next.js & Express
+</div>
             </div>
           </>
         )}
 
       </div>
     </div>
+    
   );
 }
